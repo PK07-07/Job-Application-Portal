@@ -32,7 +32,7 @@ export default function Login() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e) => {
+ const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
@@ -50,8 +50,20 @@ export default function Login() {
       const data = await res.json();
 
       if (!res.ok) {
-        const errorMessage = data.errors ? data.errors[0] : data.message;
-        throw new Error(errorMessage || "Authentication failed");
+        // 👇 FIX 4: PREVENT [object Object] ERRORS
+        // We ensure we extract a pure string, regardless of how the backend formats it.
+        let extractedError = "Authentication failed";
+        
+        if (data.message) {
+          // If message is an object, convert it to a string. Otherwise, use it directly.
+          extractedError = typeof data.message === "string" ? data.message : JSON.stringify(data.message);
+        } else if (data.errors && data.errors.length > 0) {
+          // Handle arrays of error objects (common with express-validator)
+          const firstErr = data.errors[0];
+          extractedError = firstErr.msg || (typeof firstErr === "string" ? firstErr : JSON.stringify(firstErr));
+        }
+
+        throw new Error(extractedError);
       }
 
       // Save token to localStorage
@@ -59,11 +71,11 @@ export default function Login() {
       localStorage.setItem("userRole", role);
       
       // 👇 FIX 2: PREVENT BFCache HISTORY LOOPS
-      // Replaced router.push("/") with window.location.replace("/")
       window.location.replace("/");
       
     } catch (err) {
-      setError(err.message);
+      // Fallback to ensure we always set a string
+      setError(err.message || "An unexpected error occurred.");
     } finally {
       setIsLoading(false);
     }
