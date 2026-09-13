@@ -15,8 +15,8 @@ connectDB();
 
 // ── Core Middleware ────────────────────────────────────
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
-  credentials: true,       // allow cookies (refresh token)
+  origin: ['http://localhost:3000', 'https://job-application-portal-theta.vercel.app'], // Replace with your actual Vercel URL
+  credentials: true
 }));
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -41,4 +41,4 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(` Server running on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
