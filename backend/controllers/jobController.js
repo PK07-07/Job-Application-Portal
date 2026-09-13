@@ -74,9 +74,7 @@ export const updateJob = async (req, res) => {
     }
 
     // Convert comma-separated skills back into an array if they were edited
-    if (req.body.requiredSkills && typeof req.body.requiredSkills === 'string') {
-      req.body.requiredSkills = req.body.requiredSkills.split(',').map(s => s.trim()).filter(s => s !== "");
-    }
+    
 
     const updatedJob = await Job.findByIdAndUpdate(req.params.id, req.body, { 
       new: true, 
