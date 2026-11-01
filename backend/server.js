@@ -21,11 +21,23 @@ app.use((req, res, next) => {
   next();
 });
 
-// ── Core Middleware ────────────────────────────────────
+// ── Dynamic CORS Middleware ────────────────────────────
+// Allow localhost, the production Vercel domain, and ANY Vercel preview deployment URL
 app.use(cors({
-  origin: ['http://localhost:3000', 'https://job-application-portal-theta.vercel.app'], // Replace with your actual Vercel URL
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (
+      origin === 'http://localhost:3000' ||
+      origin === 'https://job-application-portal-theta.vercel.app' ||
+      origin.endsWith('.vercel.app')
+    ) {
+      return callback(null, true);
+    }
+    return callback(new Error('Blocked by CORS policy'));
+  },
   credentials: true
 }));
+
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
