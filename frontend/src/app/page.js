@@ -1,115 +1,105 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import Header from "./components/Header";
-import SeekerView from "./components/SeekerView";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import EmployerView from "./components/EmployerView";
+import SeekerView from "./components/SeekerView";
 import JobModal from "./components/JobModal";
-import ProfileModal from "./components/ProfileModal";
+import SeekerApplications from "./components/SeekerApplications"; 
+import ProfileModal from "./components/ProfileModal"; 
 
-export default function Home() {
-  const [role, setRole] = useState(null);
-  const [jobs, setJobs] = useState([]);
+export default function Dashboard() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-
-  // Search & Filter State (Seeker)
-  const [search, setSearch] = useState("");
-  const [locationType, setLocationType] = useState("");
-  const [jobType, setJobType] = useState("");
-  const [experienceLevel, setExperienceLevel] = useState("");
-
-  // Post/Edit Job Modal State (Employer)
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingJobId, setEditingJobId] = useState(null);
-  const [jobFormData, setJobFormData] = useState({
-    title: "",
-    description: "",
-    location: "",
-    locationType: "onsite",
-    jobType: "full-time",
-    experienceLevel: "entry",
-    salaryMin: "",
-    salaryMax: "",
+  const [userRole, setUserRole] = useState("seeker");
+  const [jobs, setJobs] = useState([]);
+  const [selectedJob, setSelectedJob] = useState(null);
+  
+  // ── New State for the Discovery Engine ──
+  const [searchFilters, setSearchFilters] = useState({
+    search: "", locationType: "", jobType: ""
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [currentTab, setCurrentTab] = useState("browse"); 
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalError, setModalError] = useState("");
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
-  // ── 1. Fetch Content Dynamically based on Role ───────────
+  const [editingJobId, setEditingJobId] = useState(null);
+
+  const [newJob, setNewJob] = useState({
+    title: "", description: "", location: "Bengaluru", locationType: "onsite",
+    jobType: "full-time", experienceLevel: "mid", salaryMin: "", salaryMax: "", requiredSkills: ""
+  });
+
+  // Wrapped in useCallback so it's safe to use inside useEffect
   const fetchDashboardContent = useCallback(async () => {
-    setIsLoading(true);
-    const token = localStorage.getItem("accessToken");
-    const storedRole = localStorage.getItem("userRole");
-
     try {
-      const queryParams = new URLSearchParams();
-      if (search) queryParams.append("search", search);
-      if (locationType) queryParams.append("locationType", locationType);
-      if (jobType) queryParams.append("jobType", jobType);
-      if (experienceLevel) queryParams.append("experienceLevel", experienceLevel);
+      const token = localStorage.getItem("accessToken");
+      const role = localStorage.getItem("userRole") || "seeker"; 
+      setUserRole(role);
 
-      const endpoint = storedRole === "employer" 
+      if (!token) { 
+        window.location.replace("/login"); 
+        return; 
+      }
+
+      let endpoint = role === "employer" 
         ? `${process.env.NEXT_PUBLIC_API_URL}/jobs/me` 
-        : `${process.env.NEXT_PUBLIC_API_URL}/jobs?${queryParams.toString()}`;
+        : `${process.env.NEXT_PUBLIC_API_URL}/jobs`;    
 
-      const headers = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
+      if (role === "seeker") {
+        const params = new URLSearchParams();
+        if (searchFilters.search) params.append("search", searchFilters.search);
+        if (searchFilters.locationType) params.append("locationType", searchFilters.locationType);
+        if (searchFilters.jobType) params.append("jobType", searchFilters.jobType);
+        
+        if (params.toString()) {
+          endpoint += `?${params.toString()}`;
+        }
       }
 
       const res = await fetch(endpoint, {
-        headers,
-        cache: "no-store",
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
       });
 
+      if (!res.ok) throw new Error("Session expired");
       const data = await res.json();
-      if (data.success) {
-        setJobs(data.jobs || []);
-      }
-    } catch (err) {
-      console.error("Failed to load dashboard resources:", err);
-    } finally {
+      
+      const jobsList = Array.isArray(data) ? data : (data.jobs || []);
+
+      setJobs(jobsList);
+      if (jobsList.length > 0) setSelectedJob(jobsList[0]);
+      else setSelectedJob(null);
+      
       setIsLoading(false);
+    } catch (err) {
+      console.error(err);
+      localStorage.removeItem("accessToken");
+      window.location.replace("/login");
     }
-  }, [search, locationType, jobType, experienceLevel]);
+  }, [searchFilters]);
 
-  // ── 2. Lifecycle Initialization ─────────────────────────
-  useEffect(() => {
-    const storedRole = localStorage.getItem("userRole");
-    setRole(storedRole);
-
+  useEffect(() => { 
+    // 1. Initial Fetch
     fetchDashboardContent(); 
 
-    const handleStorageChange = () => {
-      const activeRole = localStorage.getItem("userRole");
-      setRole(activeRole);
-      fetchDashboardContent();
+    // 2. BFCache Guard: Forces a re-check if the user navigates via browser arrows
+    const handlePageShow = (event) => {
+      if (event.persisted) {
+        fetchDashboardContent();
+      }
     };
 
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
   }, [fetchDashboardContent]);
 
-  // ── 3. Action Handlers (Employer) ───────────────────────
-  const handleOpenCreateModal = () => {
-    setEditingJobId(null);
-    setJobFormData({
-      title: "",
-      description: "",
-      location: "",
-      locationType: "onsite",
-      jobType: "full-time",
-      experienceLevel: "entry",
-      salaryMin: "",
-      salaryMax: "",
-    });
-    setModalError("");
-    setIsModalOpen(true);
-  };
-
-  const handleOpenEditModal = (job) => {
-    setEditingJobId(job._id);
-    setJobFormData({
+  const handleEditJob = (job) => {
+    setNewJob({
       title: job.title,
       description: job.description,
       location: job.location,
@@ -118,9 +108,10 @@ export default function Home() {
       experienceLevel: job.experienceLevel,
       salaryMin: job.salaryMin || "",
       salaryMax: job.salaryMax || "",
+      requiredSkills: job.requiredSkills ? job.requiredSkills.join(", ") : ""
     });
-    setModalError("");
-    setIsModalOpen(true);
+    setEditingJobId(job._id); 
+    setIsModalOpen(true);     
   };
 
   const handleDeleteJob = async (id) => {
@@ -156,27 +147,33 @@ export default function Home() {
       const url = editingJobId 
         ? `${process.env.NEXT_PUBLIC_API_URL}/jobs/${editingJobId}`
         : `${process.env.NEXT_PUBLIC_API_URL}/jobs`;
-
+      
       const method = editingJobId ? "PUT" : "POST";
 
       const res = await fetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify(jobFormData),
+        body: JSON.stringify(newJob)
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        if (data.message) throw new Error(data.message);
-        if (data.errors && data.errors.length > 0) throw new Error(data.errors[0].msg);
-        throw new Error("Failed to process job publication");
+        let errorMessage = "Failed to save job";
+        if (data.message) {
+          errorMessage = typeof data.message === "string" ? data.message : JSON.stringify(data.message);
+        } else if (data.errors && data.errors.length > 0) {
+          errorMessage = data.errors.map(err => err.msg || err).join(", ");
+        }
+        throw new Error(errorMessage || "Error saving job"); 
       }
 
       setIsModalOpen(false);
+      setEditingJobId(null);
+      setNewJob({ title: "", description: "", location: "Bengaluru", locationType: "onsite", jobType: "full-time", experienceLevel: "mid", salaryMin: "", salaryMax: "", requiredSkills: "" });
       await fetchDashboardContent();
     } catch (err) {
       setModalError(err.message);
@@ -185,77 +182,115 @@ export default function Home() {
     }
   };
 
-  const formatSalary = (val) => {
-    if (!val) return "Negotiable";
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(val);
-  };
+  const formatSalary = (val) => val ? `₹${(val / 100000).toFixed(1)} LPA` : "Not specified";
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#FAFAFA]">
+        <div className="w-6 h-6 border-2 border-neutral-200 border-t-neutral-900 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] flex flex-col font-sans text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white">
-      
-      {/* ── Minimalist Top Navigation ── */}
-      <Header onOpenProfile={() => setIsProfileOpen(true)} />
-
-      {/* ── Role Context Switcher View ── */}
-      <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        {role === "employer" ? (
-          <EmployerView 
-            jobs={jobs}
-            onOpenModal={handleOpenCreateModal}
-            formatSalary={formatSalary}
-            onEditJob={handleOpenEditModal}
-            onDeleteJob={handleDeleteJob}
-          />
-        ) : (
-          <SeekerView 
-            jobs={jobs}
-            search={search}
-            setSearch={setSearch}
-            locationType={locationType}
-            setLocationType={setLocationType}
-            jobType={jobType}
-            setJobType={setJobType}
-            experienceLevel={experienceLevel}
-            setExperienceLevel={setExperienceLevel}
-            formatSalary={formatSalary}
-            onSearch={fetchDashboardContent}
-          />
-        )}
-      </main>
-
-      {/* ── Footer Architecture ── */}
-      <footer className="border-t border-neutral-200/60 bg-white/50 backdrop-blur-sm py-6">
-        <div className="max-w-7xl mx-auto px-4 text-center sm:flex sm:justify-between sm:items-center text-xs text-neutral-400">
-          <p>© 2026 Recruitment Platform. Engineered for Performance & Trust.</p>
-          <div className="mt-2 sm:mt-0 space-x-4">
-            <span className="hover:text-neutral-600 transition-colors">Privacy Policy</span>
-            <span>•</span>
-            <span className="hover:text-neutral-600 transition-colors">Terms of Service</span>
-            <span>•</span>
-            <span className="hover:text-neutral-600 transition-colors">System Status</span>
+    <div className="min-h-screen bg-[#FAFAFA] font-sans text-neutral-900 flex flex-col relative">
+      <nav className="bg-white/80 backdrop-blur-md border-b border-neutral-200/60 px-8 py-4 flex justify-between items-center sticky top-0 z-20">
+        <div className="flex items-center space-x-3">
+          <div className="w-7 h-7 bg-neutral-900 rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-xs">JP</span>
           </div>
+          <h1 className="text-lg font-bold tracking-tight">
+            JobPortal<span className="text-neutral-400">.</span> 
+            <span className="text-xs font-mono ml-2 text-neutral-400 uppercase tracking-widest border border-neutral-200 px-1.5 py-0.5 rounded">
+              {userRole}
+            </span>
+          </h1>
         </div>
-      </footer>
 
-      {/* ── Global Modals ── */}
+        <div className="flex items-center space-x-2">
+          {userRole === "seeker" && (
+            <button 
+              onClick={() => setIsProfileModalOpen(true)} 
+              className="text-xs font-semibold text-neutral-600 hover:text-neutral-900 px-3 py-1.5 rounded-md hover:bg-neutral-100 transition-colors"
+            >
+              Profile Settings
+            </button>
+          )}
+          <button 
+            onClick={() => { localStorage.clear(); window.location.replace("/login"); }} 
+            className="text-xs font-medium text-neutral-500 hover:text-neutral-900 px-3 py-1.5 rounded-md hover:bg-neutral-100 transition-colors"
+          >
+            Sign Out
+          </button>
+        </div>
+      </nav>
+
+      {userRole === "employer" ? (
+        <EmployerView 
+          jobs={jobs} 
+          onOpenModal={() => {
+            setEditingJobId(null);
+            setNewJob({ title: "", description: "", location: "Bengaluru", locationType: "onsite", jobType: "full-time", experienceLevel: "mid", salaryMin: "", salaryMax: "", requiredSkills: "" });
+            setIsModalOpen(true);
+          }} 
+          formatSalary={formatSalary} 
+          onEditJob={handleEditJob}
+          onDeleteJob={handleDeleteJob}
+        />
+      ) : (
+        <div className="flex-1 flex flex-col w-full">
+          <div className="max-w-7xl w-full mx-auto px-6 mt-6 mb-2 flex space-x-2">
+            <button
+              onClick={() => setCurrentTab("browse")}
+              className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${
+                currentTab === 'browse' 
+                  ? 'bg-neutral-900 text-white shadow-sm' 
+                  : 'bg-white border border-neutral-200 text-neutral-500 hover:text-neutral-900 hover:border-neutral-300'
+              }`}
+            >
+              Browse Jobs
+            </button>
+            <button
+              onClick={() => setCurrentTab("history")}
+              className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${
+                currentTab === 'history' 
+                  ? 'bg-neutral-900 text-white shadow-sm' 
+                  : 'bg-white border border-neutral-200 text-neutral-500 hover:text-neutral-900 hover:border-neutral-300'
+              }`}
+            >
+              My Applications
+            </button>
+          </div>
+
+          {currentTab === "browse" ? (
+            <SeekerView 
+              jobs={jobs} 
+              selectedJob={selectedJob} 
+              onSelectJob={setSelectedJob} 
+              formatSalary={formatSalary} 
+              searchFilters={searchFilters}
+              setSearchFilters={setSearchFilters}
+              onSearch={fetchDashboardContent}
+            />
+          ) : (
+            <SeekerApplications />
+          )}
+        </div>
+      )}
+
       <JobModal 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        editingJobId={editingJobId}
-        formData={jobFormData}
-        setFormData={setJobFormData}
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
         onSubmit={handlePostJobSubmit}
+        newJob={newJob} 
+        onChange={(e) => setNewJob({ ...newJob, [e.target.name]: e.target.value })}
+        error={modalError} 
         isSubmitting={isSubmitting}
-        error={modalError}
       />
 
       <ProfileModal 
-        isOpen={isProfileOpen} 
-        onClose={() => setIsProfileOpen(false)} 
+        isOpen={isProfileModalOpen} 
+        onClose={() => setIsProfileModalOpen(false)} 
       />
 
     </div>
