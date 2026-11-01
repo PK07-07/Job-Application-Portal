@@ -102,7 +102,7 @@ export default function Login() {
             </h2>
             <p className="text-neutral-500 mt-2 text-sm">
               {mfaRequired 
-                ? "Open Google or Microsoft Authenticator and enter your 6-digit TOTP code."
+                ? "Enter the 6-digit verification code from your authenticator application."
                 : (isLogin 
                   ? "Enter your credentials to access your account." 
                   : "Join the next generation of professionals.")}
@@ -150,12 +150,15 @@ export default function Login() {
             {/* MFA TOTP 6-Digit Screen */}
             {mfaRequired ? (
               <div className="space-y-4">
-                <div className="p-3 bg-amber-50 rounded-lg border border-amber-200/60 text-xs text-amber-800">
-                  🛡️ Multi-Factor Authentication is enabled for <strong>{formData.email}</strong>.
+                <div className="p-3.5 bg-neutral-50 rounded-lg border border-neutral-200 text-xs text-neutral-600 flex items-center space-x-2.5">
+                  <svg className="w-4 h-4 text-neutral-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <span>Multi-factor authentication active for <strong className="text-neutral-900 font-medium">{formData.email}</strong></span>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-neutral-600 uppercase tracking-wider mb-2">
-                    6-Digit Authenticator Code
+                    Security Code
                   </label>
                   <input 
                     type="text" 
@@ -164,7 +167,7 @@ export default function Login() {
                     onChange={(e) => setTotpCode(e.target.value.trim())}
                     required 
                     autoFocus
-                    className="w-full text-center tracking-[0.5em] text-2xl font-mono px-4 py-3 bg-transparent border border-neutral-300 rounded-lg text-neutral-900 focus:bg-white focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 outline-none transition-all placeholder-neutral-300"
+                    className="w-full text-center tracking-[0.4em] text-2xl font-mono px-4 py-3 bg-transparent border border-neutral-300 rounded-lg text-neutral-900 focus:bg-white focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 outline-none transition-all placeholder-neutral-300"
                     placeholder="000000" 
                   />
                 </div>
