@@ -1,0 +1,32 @@
+# Stage 1: Dependency builder
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Install dependencies needed for compiling node native modules if any
+RUN apk add --no-cache python3 make g++
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Stage 2: Hardened Minimal Production Image
+FROM node:20-alpine
+
+# Set non-development production environment
+ENV NODE_ENV=production
+
+WORKDIR /app
+
+# Security Hardening Principle of Least Privilege:
+# 1. Use existing unprivileged 'node' user (UID 1000) instead of root (UID 0)
+# 2. Assign ownership of the /app directory to the 'node' user
+COPY --chown=node:node package*.json ./
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --chown=node:node . .
+
+# Drop root privileges completely
+USER node
+
+EXPOSE 5000
+
+CMD ["node", "server.js"]
