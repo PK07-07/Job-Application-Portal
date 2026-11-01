@@ -3,6 +3,8 @@ import { body } from 'express-validator';
 import {
   register,
   login,
+  setupMfa,
+  verifyAndEnableMfa,
   refreshAccessToken,
   logout,
   getMe,
@@ -61,5 +63,9 @@ router.post('/login',    loginValidation,    login);
 router.post('/refresh',  refreshAccessToken);
 router.post('/logout',   logout);
 router.get('/me',        protect, getMe);
+
+// ── Multi-Factor Authentication (TOTP) Routes ──────────
+router.post('/mfa/setup', protect, setupMfa);
+router.post('/mfa/verify', protect, verifyAndEnableMfa);
 
 export default router;

@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -35,6 +34,17 @@ const userSchema = new mongoose.Schema(
         message: 'Role must be either seeker or employer',
       },
       required: [true, 'Role is required'],
+    },
+
+    // Multi-Factor Authentication (TOTP - Google / Microsoft Authenticator)
+    isMfaEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    mfaSecret: {
+      type: String,
+      default: null,
+      select: false,
     },
 
     // Seeker-specific fields
@@ -88,7 +98,6 @@ const userSchema = new mongoose.Schema(
       default: '',
     },
     
-
     // Token management
     refreshToken: {
       type: String,
@@ -99,7 +108,6 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    
   },
   {
     timestamps: true,
@@ -109,15 +117,11 @@ const userSchema = new mongoose.Schema(
 );
 
 // ── Indexes ────────────────────────────────────────────
-
 userSchema.index({ role: 1 });
 
 // ── Pre-save hook: hash password ───────────────────────
-// ── Pre-save hook: hash password ───────────────────────
 userSchema.pre('save', async function () {
-  // If password isn't modified, just return and let Mongoose continue
   if (!this.isModified('password')) return;
-  
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
 });
@@ -125,7 +129,6 @@ userSchema.pre('save', async function () {
 // ── Cross-field validation: employer must have companyName ─
 userSchema.pre('save', function () {
   if (this.role === 'employer' && !this.companyName) {
-    // Instead of next(error), we just throw the error directly
     throw new Error('Employers must provide a company name');
   }
 });
@@ -137,7 +140,7 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
 
 // ── Virtual: public profile ────────────────────────────
 userSchema.virtual('profile').get(function () {
-  const base = { id: this._id, name: this.name, email: this.email, role: this.role };
+  const base = { id: this._id, name: this.name, email: this.email, role: this.role, isMfaEnabled: this.isMfaEnabled };
   if (this.role === 'seeker') {
     return { ...base, bio: this.bio, skills: this.skills, resume: this.resume };
   }

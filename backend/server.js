@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import os from 'os';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -12,6 +13,13 @@ const app = express();
 
 // ── Connect database ───────────────────────────────────
 connectDB();
+
+// ── Instance identifier for load balancer demonstration ─
+app.use((req, res, next) => {
+  const instanceId = process.env.INSTANCE_ID || os.hostname();
+  res.setHeader('X-Served-By', instanceId);
+  next();
+});
 
 // ── Core Middleware ────────────────────────────────────
 app.use(cors({
@@ -28,7 +36,11 @@ app.use('/api/jobs', jobRoutes);
 app.use('/api/applications', applicationRoutes);
 
 // ── Health check ───────────────────────────────────────
-app.get('/api/health', (_, res) => res.json({ status: 'ok', timestamp: new Date() }));
+app.get('/api/health', (_, res) => res.json({ 
+  status: 'ok', 
+  instance: process.env.INSTANCE_ID || os.hostname(),
+  timestamp: new Date() 
+}));
 app.use('/api/users', userRoutes);
 
 // ── Global error handler ───────────────────────────────
@@ -41,4 +53,4 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT} [Instance: ${process.env.INSTANCE_ID || os.hostname()}]`));
