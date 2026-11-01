@@ -13,6 +13,7 @@ import {
   BorderStyle,
   AlignmentType,
   ShadingType,
+  ImageRun,
 } from './backend/node_modules/docx/dist/index.mjs';
 
 function createCell(text, isHeader = false, isHighlight = false, widthPercent = null) {
@@ -761,7 +762,33 @@ server {
         bullet(' The free tier of MongoDB Atlas enforces a hard limit of 500 concurrent connections. Allowing thousands of concurrent clients to connect directly through un-cached backends would rapidly trigger database connection exhaustion ("Too many connections"). Intercepting read queries at the edge preserves database connection pool headroom exclusively for write transactions.', 'Preservation of MongoDB Connection Limits:'),
         bullet(' Candidates compete for high-demand, limited-seat job openings. Providing sub-10ms edge response times ensures fair, instantaneous job discovery without geographic latency disparities.', 'Ultra-Low Candidate Latency:'),
 
-        placeholder('Figure 1.8: System Architecture Diagram with Cloud Bursting / Edge Tier', 'High-level architecture diagram illustrating Vercel frontend, Nginx load balancer (port 80), 3 backend containers (port 5000), MongoDB Atlas (port 27017), and the Cloud Bursting / Edge Computing tier highlighted in distinct Amber/Orange'),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 180, after: 100 },
+          children: [
+            new ImageRun({
+              data: fs.readFileSync('D:/Projects/Job Application Portal/architecture_diagram.png'),
+              transformation: {
+                width: 600,
+                height: 400,
+              },
+              type: 'png',
+            }),
+          ],
+        }),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 200 },
+          children: [
+            new TextRun({
+              text: 'Figure 1.8: Complete System Architecture Diagram with Component Inventory, Ports & Cloud Bursting / Edge Tier (Marked in Distinct Amber/Orange)',
+              bold: true,
+              size: 19,
+              color: '1E3A8A',
+              font: 'Calibri',
+            }),
+          ],
+        }),
 
         p('', false, 10, '1E293B', 200),
 
