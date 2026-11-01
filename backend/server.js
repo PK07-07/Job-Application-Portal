@@ -1,8 +1,8 @@
-import 'dotenv/config';
 import os from 'os';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import 'dotenv/config';
 import connectDB from './config/db.js';
 import authRoutes from './routes/auth.js';
 import jobRoutes from './routes/jobs.js';      
@@ -22,13 +22,11 @@ app.use((req, res, next) => {
 });
 
 // ── Dynamic CORS Middleware ────────────────────────────
-// Allow localhost, the production Vercel domain, and ANY Vercel preview deployment URL
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
     if (
       origin === 'http://localhost:3000' ||
-      origin === 'https://job-application-portal-theta.vercel.app' ||
       origin.endsWith('.vercel.app')
     ) {
       return callback(null, true);
